@@ -63,4 +63,4 @@ deploy:
   on:
     all_branches: true
 notifications:
-  email: false%
+  email: false
