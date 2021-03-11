@@ -8,10 +8,5 @@
     ],
     "require": {
         "phpunit/phpunit": "^8.5"
-    },
-    "autoload": {
-        "psr-4": {
-            "PhpZendo\\": "src/"
-        }
     }
 }
