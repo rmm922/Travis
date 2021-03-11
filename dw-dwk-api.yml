@@ -1,0 +1,66 @@
+if: branch =~ ^master$|^development$
+group: stable
+dist: xenial
+os: linux
+sudo: required
+language: php
+php: 7.2
+
+before_script: |-
+  sudo add-apt-repository -y ppa:ondrej/php
+  sudo apt-get update
+  sudo apt-get install -y php7.2-common php7.2-cli php7.2-fpm php7.2-dev
+  export SWOOLE_EXT_VERSION=4.4.7
+  yes"" | pecl install swoole-${SWOOLE_EXT_VERSION}
+script: |-
+  set -e
+  if [ "${TRAVIS_BRANCH}" == "master" ]; then
+    for env_value in $(compgen -v |grep '.*_PRODUCTION$'); do
+      eval export ${env_value%_PRODUCTION}="${!env_value}"
+    done
+    export ENC_ENV=".production.enc.env"
+  else
+    for env_value in $(compgen -v |grep '.*_STAGING$'); do
+      eval export ${env_value%_STAGING}="${!env_value}"
+    done
+    export ENC_ENV=".staging.enc.env"
+  fi
+
+  pushd codedeploy
+  envsubst '${ENC_ENV}' < templates/application_start.sh > application_start.sh
+  popd
+
+  composer self-update
+  composer install
+
+  export AWS_CODEDEPLOY_KEY="${TRAVIS_REPO_SLUG}/${TRAVIS_BRANCH}-${TRAVIS_BUILD_NUMBER}.tgz"
+  tar -czf latest.tgz *
+  export TARGET_PATH="s3_upload/${AWS_CODEDEPLOY_KEY}"
+  mkdir -p $(dirname $TARGET_PATH)
+  mv latest.tgz $TARGET_PATH
+
+deploy:
+# upload to s3
+- provider: s3
+  access_key_id: $AWS_CODEDEPLOY_ACCESS_KEY_ID
+  secret_access_key: $AWS_CODEDEPLOY_SECRET_ACCESS_KEY
+  bucket: $AWS_S3_BUCKET
+  region: $AWS_REGION
+  local_dir: s3_upload
+  skip_cleanup: true
+  on:
+    all_branches: true
+# trigger codedeploy
+- provider: codedeploy
+  access_key_id: $AWS_CODEDEPLOY_ACCESS_KEY_ID
+  secret_access_key: $AWS_CODEDEPLOY_SECRET_ACCESS_KEY
+  bucket: $AWS_S3_BUCKET
+  region: $AWS_REGION
+  key: $AWS_CODEDEPLOY_KEY
+  bundle_type: tgz
+  application: $AWS_CODEDEPLOY_APPLICATION
+  deployment_group: $AWS_CODEDEPLOY_GROUP
+  on:
+    all_branches: true
+notifications:
+  email: false%

@@ -1,0 +1,64 @@
+if: branch =~ ^master$|^development$
+language: python
+group: stable
+dist: trusty
+os: linux
+sudo: required
+services:
+- docker
+cache: pip
+install: |-
+  # install awscli for ecr upload
+  pip install awscli --upgrade
+script: |-
+  set -e
+  if [ "master" == "${TRAVIS_BRANCH}" ]; then
+    cp .env.production .env
+    for env_value in $(compgen -v |grep '.*_PRODUCTION$'); do
+      eval export ${env_value%_PRODUCTION}="${!env_value}"
+    done
+  else
+    cp .env.staging .env
+    for env_value in $(compgen -v |grep '.*_DEVELOPMENT$'); do
+      eval export ${env_value%_DEVELOPMENT}="${!env_value}"
+    done
+  fi
+
+  tag_build_num="v${TRAVIS_BUILD_NUMBER}-build"
+  export IMAGE="${AWS_REGISTRY_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${AWS_ECR_NAME}:$tag_build_num"
+  export IMAGE_LATEST="${AWS_REGISTRY_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${AWS_ECR_NAME}:latest"
+  export ECR_LOGIN="aws ecr get-login --registry-ids $AWS_REGISTRY_ID --region $AWS_REGION --no-include-email"
+
+  docker build \
+    -t "$IMAGE" -t $IMAGE_LATEST \
+    --build-arg NPM_TOKEN=$NPM_TOKEN \
+    .
+  # cp static for s3
+  docker run --rm \
+    -v $PWD/s3_upload:/s3_upload \
+    --entrypoint "" \
+    $IMAGE \
+    bash -c "cp -r /srv/build /s3_upload/"
+
+deploy:
+# upload to ecr
+- provider: script
+  script:  >-
+    $(AWS_ACCESS_KEY_ID=${AWS_ECR_ACCESS_KEY_ID} AWS_SECRET_ACCESS_KEY=${AWS_ECR_SECRET_ACCESS_KEY} ${ECR_LOGIN})
+    && docker push "${IMAGE}"
+    && docker push "${IMAGE_LATEST}"
+  skip_cleanup: true
+  on:
+    all_branches: true
+# upload static to s3
+- provider: s3
+  access_key_id: $AWS_S3_ACCESS_KEY_ID
+  secret_access_key: $AWS_S3_SECRET_ACCESS_KEY
+  bucket: $AWS_S3_BUCKET
+  region: $AWS_REGION
+  local_dir: s3_upload
+  skip_cleanup: true
+  on:
+    all_branches: true
+notifications:
+  email: false
