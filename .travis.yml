@@ -5,7 +5,5 @@ os: linux
 sudo: required
 language: php
 php: 7.2
-install:
-  - composer install --prefer-dist --optimize-autoloader --quiet
-
+install: composer install --no-ansi --no-interaction --no-progress --prefer-dist
 script: vendor/bin/phpunit
