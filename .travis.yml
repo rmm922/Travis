@@ -1,11 +1,8 @@
-if: branch =~ ^master$|^development$
-group: stable
-dist: xenial
-os: linux
-sudo: required
 language: php
-php: 7.2
 
+php:
+- 7.1.9
+- nightly
 
 install:
-  - composer install --prefer-dist --optimize-autoloader --quiet
+- composer install --prefer-dist --optimize-autoloader --quiet
