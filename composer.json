@@ -1,4 +1,11 @@
 {
+    "name": "mac/travis",
+    "authors": [
+        {
+            "name": "renmingming",
+            "email": "renmingming@dwnews.com"
+        }
+    ],
     "require": {
         "phpunit/phpunit": "^8.5"
     }
