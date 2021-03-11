@@ -5,5 +5,7 @@ os: linux
 sudo: required
 language: php
 php: 7.2
-before_script:
-  - phpenv config-rm xdebug.ini
+install:
+  - composer install --prefer-dist --optimize-autoloader --quiet
+
+script: vendor/bin/phpunit
